@@ -620,7 +620,7 @@ def render_master_result(data):
 
 
 def render_history_table(rows, lottery_type):
-    """Render history table as HTML — batched to avoid Streamlit size limit."""
+    """Render history table using st.html() to bypass markdown parser issues."""
     import html as html_mod
     is_power = lottery_type == "power"
     header = "<th>#</th><th>Ngày</th><th>Kết Quả</th>"
@@ -628,44 +628,59 @@ def render_history_table(rows, lottery_type):
         header += "<th>Số ĐB</th>"
     header += "<th>Jackpot</th>"
 
-    # Build all row HTML
-    all_rows_html = []
+    body = ""
     for idx, row in enumerate(rows):
         numbers = [row['n1'], row['n2'], row['n3'], row['n4'], row['n5'], row['n6']]
-        balls = " ".join(f'<span class="lotto-ball small">{str(n).zfill(2)}</span>' for n in numbers)
-        bonus_td = f'<td><span class="lotto-ball small bonus">{str(row.get("bonus", 0)).zfill(2)}</span></td>' if is_power else ""
+        balls = " ".join(
+            f'<span style="width:40px;height:40px;border-radius:50%;display:inline-flex;'
+            f'align-items:center;justify-content:center;font-weight:800;font-size:0.9rem;'
+            f'font-family:monospace;color:white;background:linear-gradient(135deg,#6366f1,#8b5cf6,#ec4899);'
+            f'box-shadow:0 4px 12px rgba(99,102,241,0.4);">{str(n).zfill(2)}</span>'
+            for n in numbers
+        )
+        bonus_td = ""
+        if is_power:
+            bonus_td = (
+                f'<td style="padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.06);">'
+                f'<span style="width:40px;height:40px;border-radius:50%;display:inline-flex;'
+                f'align-items:center;justify-content:center;font-weight:800;font-size:0.9rem;'
+                f'font-family:monospace;color:white;background:linear-gradient(135deg,#f59e0b,#ef4444);'
+                f'box-shadow:0 4px 12px rgba(245,158,11,0.4);">{str(row.get("bonus", 0)).zfill(2)}</span></td>'
+            )
         jackpot_raw = str(row.get('jackpot', '-'))
-        # Sanitize: replace ≈ and other special chars that break Streamlit markdown
-        jackpot_val = jackpot_raw.replace('\u2248', '~').replace('\u2026', '...')
-        jackpot_val = html_mod.escape(jackpot_val)
-        all_rows_html.append(f"""<tr>
-            <td style="color:#64748b;">{idx + 1}</td>
-            <td class="date-cell">{row.get('draw_date', '')}</td>
-            <td><div style="display:flex;gap:6px;flex-wrap:wrap;">{balls}</div></td>
+        jackpot_val = html_mod.escape(jackpot_raw.replace('\u2248', '~').replace('\u2026', '...'))
+        body += f"""<tr style="transition:background 0.2s;">
+            <td style="padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.06);color:#64748b;">{idx + 1}</td>
+            <td style="padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.06);color:#94a3b8;font-family:monospace;font-size:0.85rem;white-space:nowrap;">{row.get('draw_date', '')}</td>
+            <td style="padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.06);"><div style="display:flex;gap:6px;flex-wrap:wrap;">{balls}</div></td>
             {bonus_td}
-            <td class="jackpot-cell">{jackpot_val}</td>
-        </tr>""")
+            <td style="padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.06);color:#f59e0b;font-weight:600;font-family:monospace;white-space:nowrap;">{jackpot_val}</td>
+        </tr>"""
 
-    # Render header card
-    st.markdown(f"""
-    <div class="glass-card">
-        <div class="card-title-row">📋 Lịch Sử Kết Quả {'Power 6/55' if is_power else 'Mega 6/45'}</div>
-    </div>
-    """, unsafe_allow_html=True)
+    title = 'Power 6/55' if is_power else 'Mega 6/45'
+    row_height = 75
+    table_height = min(len(rows) * row_height + 120, 800)
 
-    # Render table in batches of 10 rows to avoid st.markdown HTML size limit
-    BATCH = 10
-    for i in range(0, len(all_rows_html), BATCH):
-        batch = "".join(all_rows_html[i:i + BATCH])
-        thead = f"<thead><tr>{header}</tr></thead>" if i == 0 else ""
-        st.markdown(f"""
-        <div style="overflow-x:auto;">
-            <table class="hist-table">
-                {thead}
-                <tbody>{batch}</tbody>
+    full_html = f"""
+    <div style="background:rgba(17,24,39,0.8);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:24px;margin-bottom:20px;box-shadow:0 4px 24px rgba(0,0,0,0.3);">
+        <div style="display:flex;align-items:center;gap:10px;font-size:1.2rem;font-weight:700;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.1);color:#f1f5f9;">
+            📋 Lịch Sử Kết Quả {title}
+        </div>
+        <div style="overflow-x:auto;overflow-y:auto;max-height:600px;border-radius:10px;">
+            <table style="width:100%;border-collapse:collapse;font-size:0.88rem;">
+                <thead><tr style="background:rgba(99,102,241,0.1);">
+                    <th style="padding:12px 14px;text-align:left;font-weight:700;color:#06b6d4;border-bottom:2px solid rgba(255,255,255,0.1);white-space:nowrap;">#</th>
+                    <th style="padding:12px 14px;text-align:left;font-weight:700;color:#06b6d4;border-bottom:2px solid rgba(255,255,255,0.1);white-space:nowrap;">Ngày</th>
+                    <th style="padding:12px 14px;text-align:left;font-weight:700;color:#06b6d4;border-bottom:2px solid rgba(255,255,255,0.1);white-space:nowrap;">Kết Quả</th>
+                    {"<th style='padding:12px 14px;text-align:left;font-weight:700;color:#06b6d4;border-bottom:2px solid rgba(255,255,255,0.1);white-space:nowrap;'>Số ĐB</th>" if is_power else ""}
+                    <th style="padding:12px 14px;text-align:left;font-weight:700;color:#06b6d4;border-bottom:2px solid rgba(255,255,255,0.1);white-space:nowrap;">Jackpot</th>
+                </tr></thead>
+                <tbody>{body}</tbody>
             </table>
         </div>
-        """, unsafe_allow_html=True)
+    </div>
+    """
+    st.html(full_html)
 
 
 def render_history_check(user_numbers, rows, lottery_type):
