@@ -372,6 +372,84 @@ CUSTOM_CSS = """
         box-shadow: 0 6px 25px rgba(244, 63, 94, 0.4) !important;
     }
 
+    /* ---- Match Check Balls ---- */
+    .match-ball {
+        width: 40px; height: 40px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 0.9rem;
+        font-family: 'JetBrains Mono', monospace;
+        color: white;
+        background: linear-gradient(135deg, #22c55e, #16a34a);
+        box-shadow: 0 3px 10px rgba(34, 197, 94, 0.4);
+    }
+    .nomatch-ball {
+        width: 40px; height: 40px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.9rem;
+        font-family: 'JetBrains Mono', monospace;
+        color: #64748b;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .match-summary {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin: 16px 0;
+    }
+    .match-stat {
+        text-align: center;
+        padding: 10px 16px;
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 10px;
+        min-width: 70px;
+    }
+    .match-stat .count {
+        font-size: 1.4rem;
+        font-weight: 900;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .match-stat .label {
+        font-size: 0.7rem;
+        color: #64748b;
+        margin-top: 2px;
+    }
+    .check-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.88rem;
+    }
+    .check-table th {
+        background: rgba(99, 102, 241, 0.1);
+        padding: 12px 14px;
+        text-align: left;
+        font-weight: 700;
+        color: #06b6d4;
+        border-bottom: 2px solid rgba(255,255,255,0.1);
+        white-space: nowrap;
+    }
+    .check-table td {
+        padding: 10px 14px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        color: #e2e8f0;
+    }
+    .check-table tr:hover td {
+        background: rgba(99, 102, 241, 0.05);
+    }
+    .check-table tr.highlight-row td {
+        background: rgba(34, 197, 94, 0.08);
+        border-bottom: 1px solid rgba(34, 197, 94, 0.15);
+    }
+
     /* ---- Footer ---- */
     .footer-text {
         text-align: center;
@@ -418,7 +496,7 @@ def render_master_result(data):
     html = f"""
     <div class="result-card">
         <div style="font-size:0.9rem;color:#94a3b8;margin-bottom:8px;">Kỳ tiếp theo</div>
-        <div style="font-size:1.1rem;font-weight:700;color:#22c55e;margin-bottom:12px;">🎯 DỰ ĐOÁN CHÍNH XÁC</div>
+        <div style="font-size:1.1rem;font-weight:700;color:#22c55e;margin-bottom:12px;">🎯 DỰ ĐOÁN CHÍNH XÁC (V14 — Coverage Maximizer + Dan 5000)</div>
         <div class="ball-row">{balls_html}</div>
         <div class="metric-row">
             <div class="metric-item">
@@ -442,26 +520,59 @@ def render_master_result(data):
     """
     st.markdown(html, unsafe_allow_html=True)
 
+    # Dàn multi-set display
+    dan_sets = data.get("dan_sets", [])
+    if dan_sets and len(dan_sets) > 1:
+        dan_html = ""
+        labels = ["🏆 Bộ Chính", "🥈 Bộ 2", "🥉 Bộ 3", "4️⃣ Bộ 4", "5️⃣ Bộ 5"]
+        for idx, dan in enumerate(dan_sets):
+            label = labels[idx] if idx < len(labels) else f"Bộ {idx+1}"
+            balls = render_balls(dan, "lotto-ball small")
+            border = "border:2px solid rgba(244,63,94,0.4);" if idx == 0 else ""
+            dan_html += f'<div style="padding:10px 14px;background:rgba(0,0,0,0.2);border-radius:12px;{border}"><div style="font-size:0.8rem;font-weight:700;color:#94a3b8;margin-bottom:6px;">{label}</div><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">{balls}</div></div>'
+        st.markdown(f"""
+        <div class="glass-card" style="border-color:rgba(244,63,94,0.2);">
+            <div class="card-title-row">🎰 DÀN DỰ ĐOÁN (5 bộ đa dạng)</div>
+            <div style="display:grid;gap:10px;">{dan_html}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
     # Backtest details
     if bt.get("tests"):
+        recent_avg = bt.get('recent_avg', bt.get('avg', 0))
+        recent_imp = bt.get('recent_improvement', bt.get('improvement', 0))
+        recent_color = "#22c55e" if recent_imp > 0 else "#ef4444"
+        streak = bt.get('best_streak_3plus', 0)
         st.markdown(f"""
         <div class="glass-card">
             <div class="card-title-row">🧪 Kết Quả Backtest ({bt.get('tests', 0)} kỳ)</div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;">
-                <div style="text-align:center;padding:12px;background:rgba(255,255,255,0.03);border-radius:10px;">
-                    <div style="font-size:1.3rem;font-weight:800;color:#22c55e;">{bt.get('match_3plus', 0)}</div>
-                    <div style="font-size:0.7rem;color:#64748b;">Trúng 3+ số</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:10px;">
+                <div style="text-align:center;padding:10px;background:rgba(255,255,255,0.03);border-radius:10px;">
+                    <div style="font-size:1.2rem;font-weight:800;color:#22c55e;">{bt.get('match_3plus', 0)}</div>
+                    <div style="font-size:0.7rem;color:#64748b;">Trúng 3+</div>
                 </div>
-                <div style="text-align:center;padding:12px;background:rgba(255,255,255,0.03);border-radius:10px;">
-                    <div style="font-size:1.3rem;font-weight:800;color:#f59e0b;">{bt.get('match_4plus', 0)}</div>
-                    <div style="font-size:0.7rem;color:#64748b;">Trúng 4+ số</div>
+                <div style="text-align:center;padding:10px;background:rgba(255,255,255,0.03);border-radius:10px;">
+                    <div style="font-size:1.2rem;font-weight:800;color:#f59e0b;">{bt.get('match_4plus', 0)}</div>
+                    <div style="font-size:0.7rem;color:#64748b;">Trúng 4+</div>
                 </div>
-                <div style="text-align:center;padding:12px;background:rgba(255,255,255,0.03);border-radius:10px;">
-                    <div style="font-size:1.3rem;font-weight:800;color:#f43f5e;">{bt.get('match_5plus', 0)}</div>
-                    <div style="font-size:0.7rem;color:#64748b;">Trúng 5+ số</div>
+                <div style="text-align:center;padding:10px;background:rgba(255,255,255,0.03);border-radius:10px;">
+                    <div style="font-size:1.2rem;font-weight:800;color:#f43f5e;">{bt.get('match_5plus', 0)}</div>
+                    <div style="font-size:0.7rem;color:#64748b;">Trúng 5+</div>
                 </div>
-                <div style="text-align:center;padding:12px;background:rgba(255,255,255,0.03);border-radius:10px;">
-                    <div style="font-size:1.3rem;font-weight:800;color:#6366f1;">{bt.get('random_expected', 0)}</div>
+                <div style="text-align:center;padding:10px;background:rgba(255,255,255,0.03);border-radius:10px;">
+                    <div style="font-size:1.2rem;font-weight:800;color:#e879f9;">{bt.get('match_6', 0)}</div>
+                    <div style="font-size:0.7rem;color:#64748b;">Jackpot 6/6</div>
+                </div>
+                <div style="text-align:center;padding:10px;background:rgba(255,255,255,0.03);border-radius:10px;">
+                    <div style="font-size:1.2rem;font-weight:800;color:{recent_color};">{recent_avg}/6</div>
+                    <div style="font-size:0.7rem;color:#64748b;">TB 20 kỳ gần</div>
+                </div>
+                <div style="text-align:center;padding:10px;background:rgba(255,255,255,0.03);border-radius:10px;">
+                    <div style="font-size:1.2rem;font-weight:800;color:#06b6d4;">{streak}</div>
+                    <div style="font-size:0.7rem;color:#64748b;">Streak 3+ dài nhất</div>
+                </div>
+                <div style="text-align:center;padding:10px;background:rgba(255,255,255,0.03);border-radius:10px;">
+                    <div style="font-size:1.2rem;font-weight:800;color:#6366f1;">{bt.get('random_expected', 0)}</div>
                     <div style="font-size:0.7rem;color:#64748b;">Random TB</div>
                 </div>
             </div>
@@ -540,6 +651,106 @@ def render_history_table(rows, lottery_type):
         </div>
     </div>
     """, unsafe_allow_html=True)
+
+
+def render_history_check(user_numbers, rows, lottery_type):
+    """Check user numbers against all historical draws and render results."""
+    user_set = set(user_numbers)
+    is_power = lottery_type == "power"
+
+    # Calculate matches for each draw
+    match_results = []
+    match_distribution = {i: 0 for i in range(7)}  # 0-6 matches
+
+    for idx, row in enumerate(rows):
+        draw_numbers = [row['n1'], row['n2'], row['n3'], row['n4'], row['n5'], row['n6']]
+        draw_set = set(draw_numbers)
+        matched = user_set & draw_set
+        n_match = len(matched)
+        match_distribution[n_match] += 1
+        match_results.append({
+            'idx': idx + 1,
+            'date': row.get('draw_date', ''),
+            'draw_numbers': draw_numbers,
+            'matched': matched,
+            'n_match': n_match,
+            'jackpot': row.get('jackpot', '-'),
+            'bonus': row.get('bonus', 0) if is_power else None,
+        })
+
+    total = len(rows)
+
+    # ---- Summary Stats ----
+    colors = {
+        0: '#64748b', 1: '#94a3b8', 2: '#3b82f6',
+        3: '#22c55e', 4: '#f59e0b', 5: '#f43f5e', 6: '#e879f9'
+    }
+    stats_html = ""
+    for i in range(7):
+        pct = match_distribution[i] / max(total, 1) * 100
+        stats_html += f"""<div class="match-stat">
+            <div class="count" style="color:{colors[i]};">{match_distribution[i]}</div>
+            <div class="label">{i} số ({pct:.1f}%)</div>
+        </div>"""
+
+    user_balls = render_balls(sorted(user_numbers), "lotto-ball")
+    best_match = max(r['n_match'] for r in match_results) if match_results else 0
+    best_color = colors.get(best_match, '#64748b')
+
+    st.markdown(f"""
+    <div class="glass-card" style="border-color:rgba(34,197,94,0.3);box-shadow:0 0 40px rgba(34,197,94,0.1);">
+        <div class="card-title-row">🎯 Kết Quả Kiểm Tra</div>
+        <div style="text-align:center;margin-bottom:12px;">
+            <div style="font-size:0.85rem;color:#94a3b8;margin-bottom:8px;">Bộ số của bạn</div>
+            <div class="ball-row">{user_balls}</div>
+        </div>
+        <div style="text-align:center;margin:16px 0;">
+            <div style="font-size:0.85rem;color:#94a3b8;">So sánh với {total} kỳ xổ số</div>
+            <div style="font-size:2rem;font-weight:900;color:{best_color};margin:6px 0;">Cao nhất: {best_match}/6</div>
+        </div>
+        <div class="match-summary">{stats_html}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ---- Detailed table for matches >= 2 ----
+    good_matches = [r for r in match_results if r['n_match'] >= 2]
+    good_matches.sort(key=lambda x: (-x['n_match'], x['idx']))
+
+    if good_matches:
+        body = ""
+        for r in good_matches:
+            # Render balls with match highlighting
+            balls_html = ""
+            for n in r['draw_numbers']:
+                if n in r['matched']:
+                    balls_html += f'<span class="match-ball">{str(n).zfill(2)}</span> '
+                else:
+                    balls_html += f'<span class="nomatch-ball">{str(n).zfill(2)}</span> '
+
+            row_class = 'highlight-row' if r['n_match'] >= 3 else ''
+            match_color = colors.get(r['n_match'], '#64748b')
+
+            body += f"""<tr class="{row_class}">
+                <td style="color:#64748b;">{r['idx']}</td>
+                <td class="date-cell">{r['date']}</td>
+                <td><div style="display:flex;gap:6px;flex-wrap:wrap;">{balls_html}</div></td>
+                <td style="text-align:center;"><span style="color:{match_color};font-weight:800;font-size:1.1rem;">{r['n_match']}/6</span></td>
+            </tr>"""
+
+        header = "<th>#</th><th>Ngày</th><th>Kết Quả (🟢 = trùng)</th><th>Trùng</th>"
+        st.markdown(f"""
+        <div class="glass-card">
+            <div class="card-title-row">📋 Chi Tiết Các Kỳ Trùng ≥ 2 Số ({len(good_matches)} kỳ)</div>
+            <div style="overflow-x:auto;border-radius:10px;max-height:500px;overflow-y:auto;">
+                <table class="check-table">
+                    <thead><tr>{header}</tr></thead>
+                    <tbody>{body}</tbody>
+                </table>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.info("Không có kỳ nào trùng ≥ 2 số.")
 
 
 def render_phase_result(data, phase_name, phase_icon, phase_color):
@@ -755,6 +966,42 @@ def render_lottery_tab(lottery_type):
         render_master_result(st.session_state[f"master_result_{lottery_type}"])
 
     st.markdown("</div>", unsafe_allow_html=True)
+
+    # ---- HISTORY CHECK ----
+    st.markdown("""<div class="glass-card">
+        <div class="card-title-row">🔍 Kiểm Tra Bộ Số Với Các Kỳ Trước</div>
+    </div>""", unsafe_allow_html=True)
+
+    check_cols = st.columns(6)
+    check_nums = []
+    for i in range(6):
+        with check_cols[i]:
+            n = st.number_input(
+                f"Số {i+1}", min_value=1, max_value=max_num,
+                value=1 + i, key=f"check_n{i}_{lottery_type}",
+                label_visibility="collapsed"
+            )
+            check_nums.append(n)
+
+    if st.button("🔍 Kiểm Tra", key=f"check_btn_{lottery_type}", use_container_width=True):
+        # Validate: no duplicates
+        if len(set(check_nums)) < 6:
+            st.error("❌ Các số không được trùng nhau!")
+        else:
+            with st.spinner("Đang kiểm tra..."):
+                all_rows = get_recent(lottery_type, 9999)
+                if all_rows:
+                    st.session_state[f"check_result_{lottery_type}"] = {
+                        'numbers': check_nums,
+                        'rows': all_rows
+                    }
+                else:
+                    st.error("❌ Chưa có dữ liệu lịch sử!")
+
+    # Show check result if exists
+    if f"check_result_{lottery_type}" in st.session_state:
+        cr = st.session_state[f"check_result_{lottery_type}"]
+        render_history_check(cr['numbers'], cr['rows'], lottery_type)
 
     # ---- PHASE TOOLS (collapsed) ----
     with st.expander("🛠️ Công cụ phân tích chi tiết (Phase 1-7)..."):
