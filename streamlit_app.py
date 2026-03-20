@@ -634,7 +634,10 @@ def render_history_table(rows, lottery_type):
         numbers = [row['n1'], row['n2'], row['n3'], row['n4'], row['n5'], row['n6']]
         balls = " ".join(f'<span class="lotto-ball small">{str(n).zfill(2)}</span>' for n in numbers)
         bonus_td = f'<td><span class="lotto-ball small bonus">{str(row.get("bonus", 0)).zfill(2)}</span></td>' if is_power else ""
-        jackpot_val = html_mod.escape(str(row.get('jackpot', '-')))
+        jackpot_raw = str(row.get('jackpot', '-'))
+        # Sanitize: replace ≈ and other special chars that break Streamlit markdown
+        jackpot_val = jackpot_raw.replace('\u2248', '~').replace('\u2026', '...')
+        jackpot_val = html_mod.escape(jackpot_val)
         all_rows_html.append(f"""<tr>
             <td style="color:#64748b;">{idx + 1}</td>
             <td class="date-cell">{row.get('draw_date', '')}</td>
