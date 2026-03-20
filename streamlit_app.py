@@ -620,37 +620,49 @@ def render_master_result(data):
 
 
 def render_history_table(rows, lottery_type):
-    """Render history table as HTML."""
+    """Render history table as HTML — batched to avoid Streamlit size limit."""
+    import html as html_mod
     is_power = lottery_type == "power"
     header = "<th>#</th><th>Ngày</th><th>Kết Quả</th>"
     if is_power:
         header += "<th>Số ĐB</th>"
     header += "<th>Jackpot</th>"
 
-    body = ""
+    # Build all row HTML
+    all_rows_html = []
     for idx, row in enumerate(rows):
         numbers = [row['n1'], row['n2'], row['n3'], row['n4'], row['n5'], row['n6']]
         balls = " ".join(f'<span class="lotto-ball small">{str(n).zfill(2)}</span>' for n in numbers)
         bonus_td = f'<td><span class="lotto-ball small bonus">{str(row.get("bonus", 0)).zfill(2)}</span></td>' if is_power else ""
-        body += f"""<tr>
+        jackpot_val = html_mod.escape(str(row.get('jackpot', '-')))
+        all_rows_html.append(f"""<tr>
             <td style="color:#64748b;">{idx + 1}</td>
             <td class="date-cell">{row.get('draw_date', '')}</td>
             <td><div style="display:flex;gap:6px;flex-wrap:wrap;">{balls}</div></td>
             {bonus_td}
-            <td class="jackpot-cell">{row.get('jackpot', '-')}</td>
-        </tr>"""
+            <td class="jackpot-cell">{jackpot_val}</td>
+        </tr>""")
 
+    # Render header card
     st.markdown(f"""
     <div class="glass-card">
         <div class="card-title-row">📋 Lịch Sử Kết Quả {'Power 6/55' if is_power else 'Mega 6/45'}</div>
-        <div style="overflow-x:auto;border-radius:10px;">
-            <table class="hist-table">
-                <thead><tr>{header}</tr></thead>
-                <tbody>{body}</tbody>
-            </table>
-        </div>
     </div>
     """, unsafe_allow_html=True)
+
+    # Render table in batches of 10 rows to avoid st.markdown HTML size limit
+    BATCH = 10
+    for i in range(0, len(all_rows_html), BATCH):
+        batch = "".join(all_rows_html[i:i + BATCH])
+        thead = f"<thead><tr>{header}</tr></thead>" if i == 0 else ""
+        st.markdown(f"""
+        <div style="overflow-x:auto;">
+            <table class="hist-table">
+                {thead}
+                <tbody>{batch}</tbody>
+            </table>
+        </div>
+        """, unsafe_allow_html=True)
 
 
 def render_history_check(user_numbers, rows, lottery_type):
